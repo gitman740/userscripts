@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         [YT] Skip Button Focus
+// @name         [YT]  Focus Skip Button 
 // @match        https://www.youtube.com/*
 // @run-at       document-idle
 // ==/UserScript==
