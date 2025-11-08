@@ -3,7 +3,7 @@
 // @match        https://www.youtube.com/*
 // @run-at       document-idle
 // @updateURL    https://github.com/gitman740/userscripts/raw/refs/heads/main/YouTube/focus_skip_button.user.js
-// @version      0.1.0
+// @version      0.1.1
 // ==/UserScript==
 
 (function() {
@@ -29,28 +29,36 @@
     return true;
   }
 
-  function focusWithRetries(btn, attempts = 5) {
-    let left = attempts;
-    const tryFocus = () => {
-      if (!isVisible(btn)) {
-        if (--left > 0) requestAnimationFrame(tryFocus);
-        return;
+  function focusButton(btn) {
+    btn.tabIndex = 0;
+    btn.focus({ preventScroll: true });
+    btn.style.outline = '4px solid #ffeb3b';
+    btn.style.outlineOffset = '2px';
+    console.log('[skip-focus] フォーカス実行');
+  }
+
+  function watchButton(btn) {
+    // すでに可視なら即フォーカス
+    if (isVisible(btn)) {
+      focusButton(btn);
+      return;
+    }
+    // 属性変化を監視して、可視化された瞬間にフォーカス
+    const obs = new MutationObserver(() => {
+      if (isVisible(btn)) {
+        obs.disconnect();
+        focusButton(btn);
       }
-      btn.tabIndex = 0;
-      btn.focus({ preventScroll: true });
-      if (document.activeElement !== btn && --left > 0) {
-        requestAnimationFrame(tryFocus);
-      }
-    };
-    tryFocus();
+    });
+    obs.observe(btn, { attributes: true, attributeFilter: ['style', 'class', 'hidden', 'aria-hidden'] });
   }
 
   function handleSkipButton() {
     const btn = findSkipButton();
-    if (btn) focusWithRetries(btn);
+    if (btn) watchButton(btn);
   }
 
-  // 広告UIの出現に追従
+  // 広告UIの出現を監視
   const mo = new MutationObserver(() => {
     handleSkipButton();
   });
