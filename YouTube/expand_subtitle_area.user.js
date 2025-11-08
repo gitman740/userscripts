@@ -5,6 +5,8 @@
 // @match        https://www.youtube.com/live*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=youtube.com
 // @grant        none
+// @updateURL    https://github.com/gitman740/userscripts/raw/refs/heads/main/YouTube/expand_subtitle_area.user.js
+// @version      0.1.0
 // ==/UserScript==
 
 (async function() {

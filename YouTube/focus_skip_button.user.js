@@ -2,6 +2,8 @@
 // @name         [YT]  Focus Skip Button 
 // @match        https://www.youtube.com/*
 // @run-at       document-idle
+// @updateURL    https://github.com/gitman740/userscripts/raw/refs/heads/main/YouTube/focus_skip_button.user.js
+// @version      0.1.0
 // ==/UserScript==
 
 (function() {
