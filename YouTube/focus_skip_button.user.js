@@ -1,9 +1,9 @@
 // ==UserScript==
-// @name         [YT]  Focus Skip Button 
+// @name         [YT]  Focus Skip Button
 // @match        https://www.youtube.com/*
 // @run-at       document-idle
 // @updateURL    https://github.com/gitman740/userscripts/raw/refs/heads/main/YouTube/focus_skip_button.user.js
-// @version      0.1.1
+// @version      0.1.2
 // ==/UserScript==
 
 (function() {
@@ -29,25 +29,36 @@
     return true;
   }
 
-  function focusButton(btn) {
-    btn.tabIndex = 0;
-    btn.focus({ preventScroll: true });
-    btn.style.outline = '4px solid #ffeb3b';
-    btn.style.outlineOffset = '2px';
-    console.log('[skip-focus] フォーカス実行');
+  function focusWithRetries(btn, attempts = 10) {
+    let left = attempts;
+    const tryFocus = () => {
+      if (!isVisible(btn)) {
+        if (--left > 0) requestAnimationFrame(tryFocus);
+        return;
+      }
+      btn.tabIndex = 0;
+      btn.focus({ preventScroll: true });
+      btn.style.outline = '4px solid #ffeb3b';
+      btn.style.outlineOffset = '2px';
+      console.log('[skip-focus] フォーカス試行 残り:', left, 'activeElement===btn?', document.activeElement === btn);
+      if (document.activeElement !== btn && --left > 0) {
+        requestAnimationFrame(tryFocus);
+      }
+    };
+    tryFocus();
   }
 
   function watchButton(btn) {
-    // すでに可視なら即フォーカス
+    // すでに可視ならリトライ付きでフォーカス
     if (isVisible(btn)) {
-      focusButton(btn);
+      focusWithRetries(btn);
       return;
     }
-    // 属性変化を監視して、可視化された瞬間にフォーカス
+    // 属性変化を監視して、可視化された瞬間にリトライ付きフォーカス
     const obs = new MutationObserver(() => {
       if (isVisible(btn)) {
         obs.disconnect();
-        focusButton(btn);
+        focusWithRetries(btn);
       }
     });
     obs.observe(btn, { attributes: true, attributeFilter: ['style', 'class', 'hidden', 'aria-hidden'] });
