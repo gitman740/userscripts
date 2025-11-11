@@ -7,6 +7,7 @@
 // @run-at       document-start
 // @grant        none
 // @updateURL    https://github.com/gitman740/userscripts/raw/refs/heads/main/X/list_search_helper.user.js
+// @downloadURL  https://github.com/gitman740/userscripts/raw/refs/heads/main/X/list_search_helper.user.js
 // @version      0.7.1
 // ==/UserScript==
 
