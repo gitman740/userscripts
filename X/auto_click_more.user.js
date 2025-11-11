@@ -1,14 +1,14 @@
 // ==UserScript==
 // @name         [X] Auto Click more
 // @namespace    http://tampermonkey.net/
-// @description  Xの長い投稿の「さらに表示」を、テキストと親buttonで特定して自動クリックします。
+// @description  Xの長い投稿の「さらに表示」を、テキストと親buttonで特定して自動クリックします
 // @author       Grok
 // @match        https://x.com/*
 // @grant        none
 // @run-at       document-idle
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=x.com
 // @updateURL    https://github.com/gitman740/userscripts/raw/refs/heads/main/X/auto_click_more.user.js
-// @version      1.1
+// @version      1.1.1
 // ==/UserScript==
 
 (function() {
