@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         [X] list search helper
+// @name         [X] List Search Helper
 // @namespace    https://tampermonkey.net/
 // @description  list:検索時にリプライをフィルタリング。自己リプライ保持／他人リプライ非表示を選択可能。詳細ログと結果ログを独立制御。
 // @match        https://x.com/*
@@ -7,7 +7,7 @@
 // @run-at       document-start
 // @grant        none
 // @updateURL    https://github.com/gitman740/userscripts/raw/refs/heads/main/X/list_search_helper.user.js
-// @version      0.7.0
+// @version      0.7.1
 // ==/UserScript==
 
 (function() {
