@@ -8,7 +8,7 @@
 // @run-at       document-idle
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=x.com
 // @updateURL    https://github.com/gitman740/userscripts/raw/refs/heads/main/X/auto_click_more.user.js
-// @version      1.1.1
+// @version      1.1.2
 // ==/UserScript==
 
 (function() {
@@ -25,8 +25,14 @@
         const candidates = document.querySelectorAll('span, div, button'); // テキストを含む可能性が高い要素
         candidates.forEach(element => {
             if (element.innerText === targetText && element.offsetParent !== null) {
+                // Grokへのリンクを除外する（'/i/grok/' を含む a タグ内の場合はスキップ）
+                const anchor = element.closest('a');
+                if (anchor && anchor.href.includes('/i/grok/')) {
+                    return;
+                }
+
                 // 親または祖先が<button>かを確認
-                let parentButton = element.closest('button');
+                const parentButton = element.closest('button');
                 if (parentButton && !parentButton.disabled) {
                     parentButton.click();
                     clicked = true;
