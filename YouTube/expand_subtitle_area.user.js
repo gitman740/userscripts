@@ -6,7 +6,7 @@
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=youtube.com
 // @grant        none
 // @updateURL    https://github.com/gitman740/userscripts/raw/refs/heads/main/YouTube/expand_subtitle_area.user.js
-// @version      0.1.0
+// @version      0.1.1
 // ==/UserScript==
 
 (async function() {
@@ -168,20 +168,6 @@
         video.style.top = "0px";
     }
 
-    function adjustExpandRate(delta){
-        const val = delta * 0.0001;
-        expand_rate += val;
-        expand_rate = Math.max(expand_rate, 1.0);
-        expand_rate = Math.min(expand_rate, 1.3);
-
-        saveStringToStorage(EXPAND_RATE_SAVE_ID, expand_rate);
-
-        console.log(expand_rate);
-
-        // 更新
-        updateSubtitleAreaExpand();
-    }
-
     function addToggleButton(parent){
         let button = document.createElement('button');
         button.id = "ExpandAreaToggleButton";
@@ -228,9 +214,16 @@
         // SVGを親要素に追加
         button.appendChild(svg);
 
+        let dragStartY = 0;
+        let dragStartRate = 0;
+        let isDragging = false;
+        let hasMoved = false;
+
         button.addEventListener(
             'click',
             (event) => {
+                if (hasMoved) return;
+
                 is_expanding = !is_expanding;
 
                 updateSubtitleAreaExpand(is_expanding);
@@ -246,10 +239,44 @@
         );
 
         button.addEventListener(
-            'wheel',
+            'mousedown',
             (event) => {
+                if (event.button !== 0) return;
                 event.preventDefault();
-                adjustExpandRate(event.deltaY);
+
+                isDragging = true;
+                hasMoved = false;
+                dragStartY = event.clientY;
+                dragStartRate = expand_rate;
+
+                const onMouseMove = (e) => {
+                    if (!isDragging) return;
+                    const deltaY = e.clientY - dragStartY;
+
+                    if (Math.abs(deltaY) > 3) hasMoved = true;
+
+                    if (hasMoved) {
+                        const sensitivity = 0.002;
+                        let newRate = dragStartRate + (deltaY * sensitivity);
+                        newRate = Math.max(newRate, 1.0);
+                        newRate = Math.min(newRate, 1.3);
+
+                        if (newRate !== expand_rate) {
+                            expand_rate = newRate;
+                            saveStringToStorage(EXPAND_RATE_SAVE_ID, expand_rate);
+                            updateSubtitleAreaExpand();
+                        }
+                    }
+                };
+
+                const onMouseUp = () => {
+                    isDragging = false;
+                    window.removeEventListener('mousemove', onMouseMove);
+                    window.removeEventListener('mouseup', onMouseUp);
+                };
+
+                window.addEventListener('mousemove', onMouseMove);
+                window.addEventListener('mouseup', onMouseUp);
             }
         );
 
