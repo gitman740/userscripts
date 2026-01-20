@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         青空文庫表示制御（幅指定＋設定保存版）
+// @name         青空文庫表示制御
 // @namespace    https://greasyfork.org/ja/users/219984-isari
-// @version      0.3
+// @version      0.3.1
 // @description  青空文庫のフォントや文字サイズ、背景色、本文幅(px)を変更し、設定を保存して次回復元します
 // @author       isari
 // @author       Gemini
@@ -166,14 +166,14 @@ $(function() {
             <div style="font-weight:bold; text-align:center;">しおり</div>
             <button id="ab-load" class="ab-btn" title="保存した位置へ移動">移動</button>
             <button id="ab-save" class="ab-btn" title="現在の位置を保存">保存</button>
-            <span id="ab-msg" style="display:none; color:green; text-align:center;">保存済</span>
+            <span id="ab-msg" style="display:none; color:green; text-align:center;">保存完了</span>
         </div>
     `);
 
     $('#ab-save').on('click', function() {
         const pos = { top: $(window).scrollTop(), left: $(window).scrollLeft() };
         localStorage.setItem(BOOKMARK_KEY, JSON.stringify(pos));
-        $('#ab-msg').text("保存しました").fadeIn(200).delay(1000).fadeOut(500);
+        $('#ab-msg').fadeIn(200).delay(1000).fadeOut(500);
     });
 
     $('#ab-load').on('click', function() {

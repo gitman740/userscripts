@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [Medium] Article Bookmark
 // @namespace    http://tampermonkey.net/
-// @version      0.1
+// @version      0.1.1
 // @description  Adds a bookmark feature to Medium articles, placed in the bottom-right corner.
 // @author       You / Gemini
 // @match        https://medium.com/*/*
@@ -67,7 +67,7 @@
             <div style="font-weight: 600; text-align: center; font-size: 13px; color: #555;">しおり</div>
             <button id="medium-load-btn" class="medium-btn" title="保存した位置へ移動">移動</button>
             <button id="medium-save-btn" class="medium-btn" title="現在の位置を保存">保存</button>
-            <span id="medium-bookmark-msg">保存済</span>
+            <span id="medium-bookmark-msg">保存完了</span>
         </div>
     `;
 
