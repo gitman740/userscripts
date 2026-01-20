@@ -164,8 +164,8 @@ $(function() {
     $('body').append(`
         <div id="ab-bookmark-panel">
             <div style="font-weight:bold; text-align:center;">しおり</div>
-            <button id="ab-save" class="ab-btn" title="現在の位置を保存">保存</button>
             <button id="ab-load" class="ab-btn" title="保存した位置へ移動">移動</button>
+            <button id="ab-save" class="ab-btn" title="現在の位置を保存">保存</button>
             <span id="ab-msg" style="display:none; color:green; text-align:center;">保存済</span>
         </div>
     `);
