@@ -176,6 +176,16 @@
 
     async function handleMasterChange(e) {
         settings.enabled = e.target.checked;
+        
+        // フィルターをONにした時、もし全ての項目がOFFになっていたら、
+        // ユーザーの利便性のために「全てON」にリセットする
+        if (settings.enabled) {
+            const allOff = filterKeywords.every(k => settings[k] === false);
+            if (allOff) {
+                filterKeywords.forEach(k => settings[k] = true);
+            }
+        }
+        
         updateAndPersist();
     }
 
@@ -184,12 +194,32 @@
         keywords.forEach(k => {
             settings[k] = checked;
         });
-        updateAndPersist();
+        checkAutoSwitchAndPersist();
     }
 
     async function handleDetailChange(e) {
         const keyword = e.target.dataset.keyword;
         settings[keyword] = e.target.checked;
+        checkAutoSwitchAndPersist();
+    }
+
+    /**
+     * 設定変更後、もし「全てのチェックがOFF」になっていたら、
+     * 自動的にフィルター機能自体を無効化(OFF)にする。
+     * そうでなければ通常通り保存して更新する。
+     */
+    async function checkAutoSwitchAndPersist() {
+        const allOff = filterKeywords.every(k => settings[k] === false);
+        
+        if (allOff) {
+            // 全てOFFなら、フィルター機能自体を無効にする（＝全表示）
+            settings.enabled = false;
+        } else if (!settings.enabled) {
+            // 何か一つでもONになっていて、かつフィルターが無効なら、
+            // ユーザーが設定を使おうとしていると判断して自動的に有効化する
+            settings.enabled = true;
+        }
+
         updateAndPersist();
     }
 
@@ -220,9 +250,9 @@
             padding: 0;
             margin: 0;
         }
-        #filter-details-fieldset:disabled label {
-            color: #8b98a5; /* XのUIで使われるグレーに近い色 */
-            cursor: not-allowed;
+        /* 無効時は少し薄くするが、操作は許可する */
+        #filter-details-fieldset.filter-disabled {
+            opacity: 0.6;
         }
         /* デフォルトのdivスタイル (アイテム行用) */
         #filter-settings-panel div {
@@ -272,7 +302,11 @@
         uiElements.masterCheckbox.checked = settings.enabled;
 
         // 詳細設定フィールドの有効/無効を切り替え
-        uiElements.detailsFieldset.disabled = !settings.enabled;
+        if (settings.enabled) {
+            uiElements.detailsFieldset.classList.remove('filter-disabled');
+        } else {
+            uiElements.detailsFieldset.classList.add('filter-disabled');
+        }
 
         // 各詳細チェックボックスの状態を更新
         uiElements.detailsFieldset.querySelectorAll('input[type="checkbox"]').forEach(cb => {
