@@ -336,15 +336,16 @@
          * フィルタリング実行
          */
         applyFilter() {
-            if (this.settings.enabled === false) {
+            const hiddenKeywords = this.settings.enabled
+                ? this.flatKeywords.filter(k => this.settings[k] === false)
+                : [];
+
+            if (hiddenKeywords.length === 0) {
                 document.querySelectorAll(CONFIG.SELECTORS.NOTIFICATION_CELL).forEach(n => {
                     if (n.style.display === 'none') n.style.display = '';
                 });
                 return;
             }
-
-            const hiddenKeywords = this.flatKeywords.filter(k => this.settings[k] === false);
-            if (hiddenKeywords.length === 0) return;
 
             document.querySelectorAll(CONFIG.SELECTORS.NOTIFICATION_CELL).forEach(node => {
                 const text = node.innerText.toLowerCase();
