@@ -13,24 +13,32 @@
 (function() {
     'use strict';
 
-    // --- 定数定義 ---
-    const UI_OFFSET_TOP = '70px';
-    const SETTINGS_KEY = 'notification_filter_settings';
-    const QUATE_REPOST_LABEL = `引用`;
+    /**
+     * 設定と定数
+     */
+    const CONFIG = {
+        UI_OFFSET_TOP: '70px',
+        SETTINGS_KEY: 'notification_filter_settings',
+        QUOTE_LABEL: '引用',
+        SELECTORS: {
+            NOTIFICATION_CELL: 'div[data-testid="cellInnerDiv"]',
+            ACCOUNT_BUTTON: 'button[data-testid="SideNav_AccountSwitcher_Button"]',
+            PROFILE_IMG: 'img'
+        }
+    };
 
-    // グループ定義
-    const keywordGroups = [
+    const KEYWORD_GROUPS = [
         {
             name: '主要',
-            keywords: [`返信先`, QUATE_REPOST_LABEL, `フォローされました`]
+            keywords: ['返信先', CONFIG.QUOTE_LABEL, 'フォローされました']
         },
         {
             name: '反応',
             keywords: [
-                `あなたのポストをいいねしました`,
-                `あなたの返信をいいねしました`,
-                `あなたのポストをリポストしました`,
-                `あなたの返信をリポストしました`
+                'あなたのポストをいいねしました',
+                'あなたの返信をいいねしました',
+                'あなたのポストをリポストしました',
+                'あなたの返信をリポストしました'
             ]
         },
         {
@@ -44,190 +52,10 @@
         }
     ];
 
-    // フィルター対象のキーワードリスト（フラット化）
-    const filterKeywords = keywordGroups.flatMap(g => g.keywords);
-
-    // --- 状態管理 ---
-    let settings = {}; // スクリプト全体で共有する設定オブジェクト
-    let uiElements = {}; // UI要素を保持するオブジェクト
-    let myProfileImageSrc = ''; // ログインユーザーのプロフィール画像URL
-
-    // --- メイン処理 ---
-
-    /**
-     * 通知をフィルタリングして表示/非表示を切り替える
-     */
-    function filterNotifications() {
-        // フィルター機能が無効なら、全ての通知を表示して終了
-        if (settings.enabled === false) {
-            document.querySelectorAll('div[data-testid="cellInnerDiv"]').forEach(n => {
-                if (n.style.display === 'none') n.style.display = '';
-            });
-            return;
-        }
-
-        // 非表示にすべきキーワード（チェックが外れているもの）のリストを作成
-        const keywordsToHide = filterKeywords.filter(keyword => settings[keyword] === false);
-
-        if (keywordsToHide.length === 0) return; // 非表示対象がなければ処理終了
-
-        document.querySelectorAll('div[data-testid="cellInnerDiv"]').forEach(function(notification) {
-            const text = notification.innerText.toLowerCase();
-
-            // 通常のキーワードで非表示にするかチェック
-            let shouldHide = keywordsToHide
-                .filter(k => k !== QUATE_REPOST_LABEL) // 引用リツイートは別途チェック
-                .some(keyword => text.includes(keyword.toLowerCase()));
-
-            // 「引用リツイート」を非表示にする設定の場合、特別なDOMチェックを行う
-            if (!shouldHide && myProfileImageSrc && keywordsToHide.includes(QUATE_REPOST_LABEL)) {
-                // 通知セル内に、自分のプロフィール画像が部分一致で1つ以上あるかチェックする
-                if (notification.querySelector(`img[src*="${myProfileImageSrc}"]`)) {
-                    shouldHide = true;
-                }
-            }
-
-            if (shouldHide) {
-                notification.style.display = 'none';
-            } else {
-                // フィルタ対象外のものは表示状態にする
-                notification.style.display = '';
-            }
-        });
-    }
-
-    /**
-     * 設定UIのDOMを生成してページに追加する
-     */
-    function createSettingsPanel() {
-        const panel = document.createElement('div');
-        panel.id = 'filter-settings-panel';
-        uiElements.panel = panel;
-
-        // マスターON/OFFスイッチ
-        const masterWrapper = document.createElement('div');
-        masterWrapper.id = 'filter-master-switch';
-        const { checkbox: masterCheckbox, label: masterLabel } = createCheckboxAndLabel('master', 'フィルターを有効にする', handleMasterChange);
-        uiElements.masterCheckbox = masterCheckbox;
-        masterWrapper.append(masterCheckbox, masterLabel); // Append both to the wrapper
-        panel.appendChild(masterWrapper);
-
-        // 各キーワード設定
-        const detailsFieldset = document.createElement('fieldset');
-        detailsFieldset.id = 'filter-details-fieldset';
-        uiElements.detailsFieldset = detailsFieldset;
-
-        keywordGroups.forEach((group, idx) => {
-            const groupWrapper = document.createElement('div');
-            groupWrapper.className = 'filter-group-wrapper';
-
-            // グループヘッダー（一括操作用）
-            const header = document.createElement('div');
-            header.className = 'filter-group-header';
-            const groupCb = document.createElement('input');
-            groupCb.type = 'checkbox';
-            groupCb.id = `group-cb-${idx}`;
-            groupCb.addEventListener('change', (e) => handleGroupChange(e, group.keywords));
-            const groupLabel = document.createElement('label');
-            groupLabel.htmlFor = groupCb.id;
-            groupLabel.textContent = group.name;
-            header.append(groupCb, groupLabel);
-            groupWrapper.appendChild(header);
-
-            // グループ内の項目
-            const list = document.createElement('div');
-            list.className = 'filter-group-list';
-            group.keywords.forEach(keyword => {
-                const itemWrapper = document.createElement('div');
-                const { checkbox, label } = createCheckboxAndLabel(keyword, keyword, handleDetailChange);
-                itemWrapper.append(checkbox, label);
-                list.appendChild(itemWrapper);
-            });
-            groupWrapper.appendChild(list);
-            detailsFieldset.appendChild(groupWrapper);
-        });
-
-        panel.appendChild(detailsFieldset);
-        document.body.appendChild(panel);
-    }
-
-    /**
-     * チェックボックスとラベルのペアを生成するヘルパー関数。
-     * 生成された要素をオブジェクトとして返す。
-     * @param {string} id - チェックボックスのID（キーワード）
-     * @param {string} text - ラベルのテキスト
-     * @param {Function} eventHandler - changeイベントのハンドラ
-     * @returns {{checkbox: HTMLInputElement, label: HTMLLabelElement}} 生成されたチェックボックスとラベル要素
-     */
-    function createCheckboxAndLabel(id, text, eventHandler) {
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.id = `filter-checkbox-${id}`;
-        checkbox.dataset.keyword = id;
-        checkbox.addEventListener('change', eventHandler);
-        const label = document.createElement('label');
-        label.htmlFor = checkbox.id;
-        label.textContent = text;
-
-        return { checkbox, label };
-    }
-
-    // --- イベントハンドラ ---
-
-    async function handleMasterChange(e) {
-        settings.enabled = e.target.checked;
-        
-        // フィルターをONにした時、もし全ての項目がOFFになっていたら、
-        // ユーザーの利便性のために「全てON」にリセットする
-        if (settings.enabled) {
-            const allOff = filterKeywords.every(k => settings[k] === false);
-            if (allOff) {
-                filterKeywords.forEach(k => settings[k] = true);
-            }
-        }
-        
-        updateAndPersist();
-    }
-
-    async function handleGroupChange(e, keywords) {
-        const checked = e.target.checked;
-        keywords.forEach(k => {
-            settings[k] = checked;
-        });
-        checkAutoSwitchAndPersist();
-    }
-
-    async function handleDetailChange(e) {
-        const keyword = e.target.dataset.keyword;
-        settings[keyword] = e.target.checked;
-        checkAutoSwitchAndPersist();
-    }
-
-    /**
-     * 設定変更後、もし「全てのチェックがOFF」になっていたら、
-     * 自動的にフィルター機能自体を無効化(OFF)にする。
-     * そうでなければ通常通り保存して更新する。
-     */
-    async function checkAutoSwitchAndPersist() {
-        const allOff = filterKeywords.every(k => settings[k] === false);
-        
-        if (allOff) {
-            // 全てOFFなら、フィルター機能自体を無効にする（＝全表示）
-            settings.enabled = false;
-        } else if (!settings.enabled) {
-            // 何か一つでもONになっていて、かつフィルターが無効なら、
-            // ユーザーが設定を使おうとしていると判断して自動的に有効化する
-            settings.enabled = true;
-        }
-
-        updateAndPersist();
-    }
-
-    function applyStyles() {
-        GM_addStyle(`
+    const STYLES = `
         #filter-settings-panel {
             position: fixed;
-            top: ${UI_OFFSET_TOP};
+            top: ${CONFIG.UI_OFFSET_TOP};
             right: 20px;
             background-color: #15202b;
             color: #ffffff;
@@ -238,6 +66,7 @@
             box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
             max-height: 85vh;
             overflow-y: auto;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         }
         #filter-master-switch {
             padding-bottom: 10px;
@@ -249,145 +78,300 @@
             border: none;
             padding: 0;
             margin: 0;
+            transition: opacity 0.2s ease;
         }
-        /* 無効時は少し薄くするが、操作は許可する */
         #filter-details-fieldset.filter-disabled {
             opacity: 0.6;
         }
-        /* デフォルトのdivスタイル (アイテム行用) */
-        #filter-settings-panel div {
+        .filter-row {
             display: flex;
             align-items: center;
             margin-bottom: 8px;
         }
-        /* グループコンテナのオーバーライド */
-        #filter-settings-panel div.filter-group-wrapper {
+        .filter-group-wrapper {
             display: block;
             margin-bottom: 12px;
             border-top: 1px solid #38444d;
             padding-top: 8px;
         }
-        #filter-settings-panel div.filter-group-list {
+        .filter-group-list {
             display: block;
             padding-left: 16px;
             margin-bottom: 0;
         }
-        #filter-settings-panel div.filter-group-header {
+        .filter-group-header {
             font-weight: bold;
             margin-bottom: 6px;
+            display: flex;
+            align-items: center;
         }
         #filter-settings-panel input[type="checkbox"] {
             margin-right: 8px;
+            cursor: pointer;
         }
         #filter-settings-panel label {
             font-size: 14px;
+            cursor: pointer;
+            user-select: none;
         }
-    `);
-    }
+    `;
 
     /**
-     * 設定を保存し、UI更新とフィルタリングを再実行する
+     * 通知フィルターのメインクラス
      */
-    async function updateAndPersist() {
-        await GM_setValue(SETTINGS_KEY, settings);
-        updateUIVisibility();
-        filterNotifications();
-    }
-
-    /**
-     * 現在の設定に基づいてUI（チェックボックスの状態やグレーアウト）を更新する
-     */
-    function updateUIVisibility() {
-        // マスターチェックボックスの状態を更新
-        uiElements.masterCheckbox.checked = settings.enabled;
-
-        // 詳細設定フィールドの有効/無効を切り替え
-        if (settings.enabled) {
-            uiElements.detailsFieldset.classList.remove('filter-disabled');
-        } else {
-            uiElements.detailsFieldset.classList.add('filter-disabled');
+    class NotificationFilter {
+        constructor() {
+            this.settings = {};
+            this.ui = {};
+            this.myProfileImageSrc = '';
+            this.flatKeywords = KEYWORD_GROUPS.flatMap(g => g.keywords);
         }
 
-        // 各詳細チェックボックスの状態を更新
-        uiElements.detailsFieldset.querySelectorAll('input[type="checkbox"]').forEach(cb => {
-            const keyword = cb.dataset.keyword;
-            cb.checked = settings[keyword];
-        });
+        async init() {
+            await this.loadSettings();
+            this.injectStyles();
+            this.createUI();
+            this.updateUI();
+            
+            // プロフィール画像取得を開始（非同期）
+            this.fetchProfileImage();
+            
+            // フィルタリング開始
+            this.startFiltering();
+        }
 
-        // グループチェックボックスの状態を更新
-        keywordGroups.forEach((group, idx) => {
-            const groupCb = document.getElementById(`group-cb-${idx}`);
-            if (groupCb) {
-                const all = group.keywords.every(k => settings[k]);
-                const some = group.keywords.some(k => settings[k]);
-                groupCb.checked = all;
-                groupCb.indeterminate = some && !all;
+        async loadSettings() {
+            const saved = await GM_getValue(CONFIG.SETTINGS_KEY, {});
+            const defaults = { enabled: true };
+            this.flatKeywords.forEach(k => defaults[k] = true);
+            this.settings = { ...defaults, ...saved };
+        }
+
+        async saveSettings() {
+            await GM_setValue(CONFIG.SETTINGS_KEY, this.settings);
+            this.updateUI();
+            this.applyFilter();
+        }
+
+        injectStyles() {
+            GM_addStyle(STYLES);
+        }
+
+        /**
+         * UI生成
+         */
+        createUI() {
+            const panel = document.createElement('div');
+            panel.id = 'filter-settings-panel';
+
+            // マスタースイッチ
+            const masterWrapper = document.createElement('div');
+            masterWrapper.id = 'filter-master-switch';
+            masterWrapper.className = 'filter-row';
+            const masterControls = this.createCheckbox('master', 'フィルターを有効にする', (e) => this.handleMasterChange(e));
+            this.ui.masterCheckbox = masterControls.checkbox;
+            masterWrapper.append(masterControls.checkbox, masterControls.label);
+            panel.appendChild(masterWrapper);
+
+            // 詳細設定エリア
+            const fieldset = document.createElement('fieldset');
+            fieldset.id = 'filter-details-fieldset';
+            this.ui.detailsFieldset = fieldset;
+
+            KEYWORD_GROUPS.forEach((group, idx) => {
+                const groupWrapper = document.createElement('div');
+                groupWrapper.className = 'filter-group-wrapper';
+
+                // グループヘッダー
+                const header = document.createElement('div');
+                header.className = 'filter-group-header';
+                const groupCb = document.createElement('input');
+                groupCb.type = 'checkbox';
+                groupCb.id = `group-cb-${idx}`;
+                groupCb.addEventListener('change', (e) => this.handleGroupChange(e, group.keywords));
+                const groupLabel = document.createElement('label');
+                groupLabel.htmlFor = groupCb.id;
+                groupLabel.textContent = group.name;
+                header.append(groupCb, groupLabel);
+                groupWrapper.appendChild(header);
+
+                // キーワードリスト
+                const list = document.createElement('div');
+                list.className = 'filter-group-list';
+                group.keywords.forEach(keyword => {
+                    const itemWrapper = document.createElement('div');
+                    itemWrapper.className = 'filter-row';
+                    const controls = this.createCheckbox(keyword, keyword, (e) => this.handleDetailChange(e));
+                    itemWrapper.append(controls.checkbox, controls.label);
+                    list.appendChild(itemWrapper);
+                });
+                groupWrapper.appendChild(list);
+                fieldset.appendChild(groupWrapper);
+            });
+
+            panel.appendChild(fieldset);
+            document.body.appendChild(panel);
+        }
+
+        createCheckbox(key, labelText, onChange) {
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.id = `filter-cb-${key.replace(/\s+/g, '-')}`;
+            checkbox.dataset.keyword = key;
+            checkbox.addEventListener('change', onChange);
+            
+            const label = document.createElement('label');
+            label.htmlFor = checkbox.id;
+            label.textContent = labelText;
+
+            return { checkbox, label };
+        }
+
+        /**
+         * UI状態の更新
+         */
+        updateUI() {
+            // マスタースイッチ
+            this.ui.masterCheckbox.checked = this.settings.enabled;
+
+            // 詳細エリアの有効/無効表示
+            if (this.settings.enabled) {
+                this.ui.detailsFieldset.classList.remove('filter-disabled');
+            } else {
+                this.ui.detailsFieldset.classList.add('filter-disabled');
             }
-        });
-    }
 
-    /**
-     * スクリプトの初期化処理
-     */
-    async function initialize() {
-        // --- ステップ1: UIと設定の準備 ---
-        // 保存された設定を読み込み、なければデフォルト値を設定
-        const savedSettings = await GM_getValue(SETTINGS_KEY, {});
-        const defaultSettings = { enabled: true };
-        filterKeywords.forEach(keyword => {
-            defaultSettings[keyword] = true; // デフォルトですべて表示
-        });
-        settings = { ...defaultSettings, ...savedSettings };
-
-        // UIを生成・適用し、初期状態を反映
-        createSettingsPanel();
-        applyStyles();
-        updateUIVisibility();
-
-        // --- ステップ2: プロフィール画像の取得を試みる ---
-        // ページ描画が完了するまで、一定間隔で取得をリトライする
-        let attempts = 0;
-        const maxRetries = 20; // 最大20回試行 (約10秒)
-        const interval = 500; // 500ミリ秒間隔
-
-        const tryToGetImage = setInterval(() => {
-            const accountButton = document.querySelector('button[data-testid="SideNav_AccountSwitcher_Button"]');
-            if (accountButton) {
-                const profileImg = accountButton.querySelector('img');
-                if (profileImg && profileImg.src) {
-                    // 成功！URLを保存してリトライを停止
-                    const lastUnderscoreIndex = profileImg.src.lastIndexOf('_');
-                    if (lastUnderscoreIndex !== -1) {
-                        myProfileImageSrc = profileImg.src.substring(0, lastUnderscoreIndex);
-                    } else {
-                        myProfileImageSrc = profileImg.src; // '_' がない場合はそのまま使う
-                    }
-                    console.log(`[X Notification Filter] プロフィール画像URLの基本部分を取得しました: ${myProfileImageSrc}`);
-                    clearInterval(tryToGetImage);
-                    startFiltering(); // フィルタリングを開始
-                    return;
+            // 各チェックボックス
+            this.ui.detailsFieldset.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+                const key = cb.dataset.keyword;
+                if (key && this.settings.hasOwnProperty(key)) {
+                    cb.checked = this.settings[key];
                 }
+            });
+
+            // グループチェックボックス
+            KEYWORD_GROUPS.forEach((group, idx) => {
+                const groupCb = document.getElementById(`group-cb-${idx}`);
+                if (groupCb) {
+                    const all = group.keywords.every(k => this.settings[k]);
+                    const some = group.keywords.some(k => this.settings[k]);
+                    groupCb.checked = all;
+                    groupCb.indeterminate = some && !all;
+                }
+            });
+        }
+
+        /**
+         * イベントハンドラ
+         */
+        handleMasterChange(e) {
+            this.settings.enabled = e.target.checked;
+            
+            // ONにした時、全部OFFなら全部ONに戻す（利便性）
+            if (this.settings.enabled && this.isAllOff()) {
+                this.flatKeywords.forEach(k => this.settings[k] = true);
+            }
+            this.saveSettings();
+        }
+
+        handleGroupChange(e, keywords) {
+            const checked = e.target.checked;
+            keywords.forEach(k => this.settings[k] = checked);
+            this.checkAutoSwitch();
+            this.saveSettings();
+        }
+
+        handleDetailChange(e) {
+            const key = e.target.dataset.keyword;
+            this.settings[key] = e.target.checked;
+            this.checkAutoSwitch();
+            this.saveSettings();
+        }
+
+        isAllOff() {
+            return this.flatKeywords.every(k => this.settings[k] === false);
+        }
+
+        checkAutoSwitch() {
+            if (this.isAllOff()) {
+                this.settings.enabled = false;
+            } else if (!this.settings.enabled) {
+                this.settings.enabled = true;
+            }
+        }
+
+        /**
+         * プロフィール画像の取得（引用RTフィルタ用）
+         */
+        fetchProfileImage() {
+            let attempts = 0;
+            const maxRetries = 20;
+            const interval = 500;
+
+            const timer = setInterval(() => {
+                const btn = document.querySelector(CONFIG.SELECTORS.ACCOUNT_BUTTON);
+                if (btn) {
+                    const img = btn.querySelector(CONFIG.SELECTORS.PROFILE_IMG);
+                    if (img && img.src) {
+                        // URLのベース部分を抽出
+                        const idx = img.src.lastIndexOf('_');
+                        this.myProfileImageSrc = (idx !== -1) ? img.src.substring(0, idx) : img.src;
+                        
+                        console.log(`[X Filter] Profile image found: ${this.myProfileImageSrc}`);
+                        clearInterval(timer);
+                        this.applyFilter(); // 画像取得後に再フィルタリング
+                        return;
+                    }
+                }
+
+                attempts++;
+                if (attempts >= maxRetries) {
+                    clearInterval(timer);
+                    console.log('[X Filter] Failed to fetch profile image.');
+                }
+            }, interval);
+        }
+
+        /**
+         * フィルタリング実行
+         */
+        applyFilter() {
+            if (this.settings.enabled === false) {
+                document.querySelectorAll(CONFIG.SELECTORS.NOTIFICATION_CELL).forEach(n => {
+                    if (n.style.display === 'none') n.style.display = '';
+                });
+                return;
             }
 
-            attempts++;
-            if (attempts >= maxRetries) {
-                clearInterval(tryToGetImage);
-                console.log('[X Notification Filter] プロフィール画像URLの取得に失敗しました。引用RTのフィルタリングは機能しません。');
-                startFiltering(); // 画像取得に失敗しても、他のフィルターは動作させる
-            }
-        }, interval);
+            const hiddenKeywords = this.flatKeywords.filter(k => this.settings[k] === false);
+            if (hiddenKeywords.length === 0) return;
+
+            document.querySelectorAll(CONFIG.SELECTORS.NOTIFICATION_CELL).forEach(node => {
+                const text = node.innerText.toLowerCase();
+                
+                // 通常キーワード判定
+                let shouldHide = hiddenKeywords
+                    .filter(k => k !== CONFIG.QUOTE_LABEL)
+                    .some(k => text.includes(k.toLowerCase()));
+
+                // 引用RTの特別判定（自分のアイコンが含まれているか）
+                if (!shouldHide && this.myProfileImageSrc && hiddenKeywords.includes(CONFIG.QUOTE_LABEL)) {
+                    if (node.querySelector(`img[src*="${this.myProfileImageSrc}"]`)) {
+                        shouldHide = true;
+                    }
+                }
+
+                node.style.display = shouldHide ? 'none' : '';
+            });
+        }
+
+        startFiltering() {
+            this.applyFilter();
+            const observer = new MutationObserver(() => this.applyFilter());
+            observer.observe(document.body, { childList: true, subtree: true });
+        }
     }
 
-    /**
-     * 最初のフィルタリングを実行し、MutationObserverによる監視を開始する
-     */
-    function startFiltering() {
-        filterNotifications();
-
-        // DOMの変更監視を開始
-        const observer = new MutationObserver(filterNotifications);
-        observer.observe(document.body, { childList: true, subtree: true });
-    }
-    // スクリプト実行
-    initialize();
+    // 実行
+    new NotificationFilter().init();
 })();
