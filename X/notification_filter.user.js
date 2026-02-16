@@ -18,20 +18,34 @@
     const SETTINGS_KEY = 'notification_filter_settings';
     const QUATE_REPOST_LABEL = `引用`;
 
-    // フィルター対象のキーワードリスト
-    const filterKeywords = [
-        `返信先`,
-        QUATE_REPOST_LABEL, // このキーワードは特別なDOMチェックを行う
-        `フォローされました`,
-        `あなたのポストをいいねしました`,
-        `あなたの返信をいいねしました`,
-        `あなたのポストをリポストしました`,
-        `あなたの返信をリポストしました`,
-        'あなたのリポストをいいねしました',
-        'あなたのリポストをリポストしました',
-        'あなた宛の返信をリポストしました',
-        '@ポストをリポストしました',
+    // グループ定義
+    const keywordGroups = [
+        {
+            name: '主要',
+            keywords: [`返信先`, QUATE_REPOST_LABEL, `フォローされました`]
+        },
+        {
+            name: '反応',
+            keywords: [
+                `あなたのポストをいいねしました`,
+                `あなたの返信をいいねしました`,
+                `あなたのポストをリポストしました`,
+                `あなたの返信をリポストしました`
+            ]
+        },
+        {
+            name: 'その他',
+            keywords: [
+                'あなたのリポストをいいねしました',
+                'あなたのリポストをリポストしました',
+                'あなた宛の返信をリポストしました',
+                '@ポストをリポストしました'
+            ]
+        }
     ];
+
+    // フィルター対象のキーワードリスト（フラット化）
+    const filterKeywords = keywordGroups.flatMap(g => g.keywords);
 
     // --- 状態管理 ---
     let settings = {}; // スクリプト全体で共有する設定オブジェクト
@@ -103,11 +117,34 @@
         detailsFieldset.id = 'filter-details-fieldset';
         uiElements.detailsFieldset = detailsFieldset;
 
-        filterKeywords.forEach((keyword) => {
-            const wrapper = document.createElement('div'); // 各キーワード用のラッパー
-            const { checkbox: keywordCheckbox, label: keywordLabel } = createCheckboxAndLabel(keyword, keyword, handleDetailChange);
-            wrapper.append(keywordCheckbox, keywordLabel);
-            detailsFieldset.appendChild(wrapper);
+        keywordGroups.forEach((group, idx) => {
+            const groupWrapper = document.createElement('div');
+            groupWrapper.className = 'filter-group-wrapper';
+
+            // グループヘッダー（一括操作用）
+            const header = document.createElement('div');
+            header.className = 'filter-group-header';
+            const groupCb = document.createElement('input');
+            groupCb.type = 'checkbox';
+            groupCb.id = `group-cb-${idx}`;
+            groupCb.addEventListener('change', (e) => handleGroupChange(e, group.keywords));
+            const groupLabel = document.createElement('label');
+            groupLabel.htmlFor = groupCb.id;
+            groupLabel.textContent = group.name;
+            header.append(groupCb, groupLabel);
+            groupWrapper.appendChild(header);
+
+            // グループ内の項目
+            const list = document.createElement('div');
+            list.className = 'filter-group-list';
+            group.keywords.forEach(keyword => {
+                const itemWrapper = document.createElement('div');
+                const { checkbox, label } = createCheckboxAndLabel(keyword, keyword, handleDetailChange);
+                itemWrapper.append(checkbox, label);
+                list.appendChild(itemWrapper);
+            });
+            groupWrapper.appendChild(list);
+            detailsFieldset.appendChild(groupWrapper);
         });
 
         panel.appendChild(detailsFieldset);
@@ -142,6 +179,14 @@
         updateAndPersist();
     }
 
+    async function handleGroupChange(e, keywords) {
+        const checked = e.target.checked;
+        keywords.forEach(k => {
+            settings[k] = checked;
+        });
+        updateAndPersist();
+    }
+
     async function handleDetailChange(e) {
         const keyword = e.target.dataset.keyword;
         settings[keyword] = e.target.checked;
@@ -161,6 +206,8 @@
             padding: 16px;
             z-index: 9999;
             box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
+            max-height: 85vh;
+            overflow-y: auto;
         }
         #filter-master-switch {
             padding-bottom: 10px;
@@ -177,10 +224,27 @@
             color: #8b98a5; /* XのUIで使われるグレーに近い色 */
             cursor: not-allowed;
         }
+        /* デフォルトのdivスタイル (アイテム行用) */
         #filter-settings-panel div {
             display: flex;
             align-items: center;
             margin-bottom: 8px;
+        }
+        /* グループコンテナのオーバーライド */
+        #filter-settings-panel div.filter-group-wrapper {
+            display: block;
+            margin-bottom: 12px;
+            border-top: 1px solid #38444d;
+            padding-top: 8px;
+        }
+        #filter-settings-panel div.filter-group-list {
+            display: block;
+            padding-left: 16px;
+            margin-bottom: 0;
+        }
+        #filter-settings-panel div.filter-group-header {
+            font-weight: bold;
+            margin-bottom: 6px;
         }
         #filter-settings-panel input[type="checkbox"] {
             margin-right: 8px;
@@ -214,6 +278,17 @@
         uiElements.detailsFieldset.querySelectorAll('input[type="checkbox"]').forEach(cb => {
             const keyword = cb.dataset.keyword;
             cb.checked = settings[keyword];
+        });
+
+        // グループチェックボックスの状態を更新
+        keywordGroups.forEach((group, idx) => {
+            const groupCb = document.getElementById(`group-cb-${idx}`);
+            if (groupCb) {
+                const all = group.keywords.every(k => settings[k]);
+                const some = group.keywords.some(k => settings[k]);
+                groupCb.checked = all;
+                groupCb.indeterminate = some && !all;
+            }
         });
     }
 
