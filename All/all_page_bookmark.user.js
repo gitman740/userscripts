@@ -13,9 +13,53 @@
 (function() {
     'use strict';
 
+    // Prevent running in iframes
+    if (window.self !== window.top) return;
+
     // --- Constants & Config ---
     const STORAGE_KEY_DOMAINS = 'apb_enabled_domains';
     const currentDomain = window.location.hostname;
+    const currentPath = window.location.pathname;
+
+    const Config = {
+        COLORS: {
+            SAVE_BG: '#a8e6cf',
+            SAVE_FG: '#333',
+            LOAD_BG: '#bde0fe',
+            LOAD_FG: '#333',
+            PANEL_BG: 'rgba(33, 33, 33, 0.9)',
+            PANEL_FG: '#fff',
+        },
+        TIMING: {
+            SCROLL_DURATION: 500,
+            SAVED_MSG_DURATION: 1500,
+            AUTOLOAD_DELAY: 200,
+            OPACITY_TRANSITION: '0.3s',
+        },
+        OPACITY: {
+            NORMAL: '0.25',
+            HOVER: '1',
+        }
+    };
+
+    // --- Storage Module ---
+    const Storage = {
+        BOOKMARK_KEY: `apb_pos_${currentPath}`,
+        PANEL_POS_KEY: `apb_panel_pos_${currentDomain}`,
+
+        getBookmarkPosition() {
+            return localStorage.getItem(this.BOOKMARK_KEY);
+        },
+        setBookmarkPosition(y) {
+            localStorage.setItem(this.BOOKMARK_KEY, y);
+        },
+        getPanelPosition() {
+            return GM_getValue(this.PANEL_POS_KEY, null);
+        },
+        setPanelPosition(pos) {
+            GM_setValue(this.PANEL_POS_KEY, pos);
+        }
+    };
 
     // --- Whitelist Management ---
     const Whitelist = {
@@ -47,81 +91,100 @@
 
     // --- Main UI & Logic ---
     function initBookmarkUI() {
-        const BOOKMARK_KEY = `apb_pos_${window.location.pathname}`;
-        const PANEL_POS_KEY = `apb_panel_pos_${currentDomain}`;
-
         // 1. Create Components
-        const container = createContainer();
+        const wrapper = createWrapper();
+        const container = createLabelContainer();
         const label = createLabel();
-        const saveBtn = createButton('Save', '#a8e6cf', '#333');
-        const loadBtn = createButton('Load', '#bde0fe', '#333');
+        const saveBtn = createButton('Save', Config.COLORS.SAVE_BG, Config.COLORS.SAVE_FG);
+        const loadBtn = createButton('Load', Config.COLORS.LOAD_BG, Config.COLORS.LOAD_FG);
 
-        // 2. Layout & Styles
-        setupOverlayLayout(container, label, saveBtn, loadBtn);
-        restorePanelPosition(container, PANEL_POS_KEY);
+        // 2. Layout & Structure
+        container.appendChild(label);
+        wrapper.appendChild(loadBtn);
+        wrapper.appendChild(container);
+        wrapper.appendChild(saveBtn);
 
         // 3. Logic & Events
-        enableDrag(label, container, (pos) => GM_setValue(PANEL_POS_KEY, pos));
-
-        // Button Actions
         const updateLoadState = () => {
-            const hasBookmark = localStorage.getItem(BOOKMARK_KEY) !== null;
+            const hasBookmark = Storage.getBookmarkPosition() !== null;
             loadBtn.disabled = !hasBookmark;
             loadBtn.style.cursor = hasBookmark ? 'pointer' : 'not-allowed';
         };
-
-        saveBtn.onclick = () => {
-            localStorage.setItem(BOOKMARK_KEY, window.scrollY);
-            const originalText = saveBtn.textContent;
-            saveBtn.textContent = 'Saved!';
-            setTimeout(() => { saveBtn.textContent = originalText; }, 1500);
-            updateLoadState();
-        };
-
-        loadBtn.onclick = () => {
-            const scrollY = localStorage.getItem(BOOKMARK_KEY);
-            if (scrollY !== null) smoothScrollTo(parseInt(scrollY, 10));
-        };
-
-        // Hover Effects
-        setupHoverEffects(container, saveBtn, loadBtn);
+        setupEventListeners(wrapper, label, saveBtn, loadBtn, updateLoadState);
 
         // 4. Mount & Init
-        container.appendChild(label);
-        container.appendChild(saveBtn);
-        container.appendChild(loadBtn);
-        document.body.appendChild(container);
-
+        document.body.appendChild(wrapper);
+        restorePanelPosition(wrapper);
         updateLoadState();
 
         // Auto-load
-        const savedScrollY = localStorage.getItem(BOOKMARK_KEY);
+        const savedScrollY = Storage.getBookmarkPosition();
         if (savedScrollY !== null) {
-            setTimeout(() => smoothScrollTo(parseInt(savedScrollY, 10)), 200);
+            setTimeout(() => smoothScrollTo(parseInt(savedScrollY, 10)), Config.TIMING.AUTOLOAD_DELAY);
         }
     }
 
     // --- Helpers ---
 
-    function createContainer() {
+    function setupEventListeners(wrapper, label, saveBtn, loadBtn, updateLoadState) {
+        enableDrag(label, wrapper, (pos) => Storage.setPanelPosition(pos));
+
+        saveBtn.onclick = () => {
+            Storage.setBookmarkPosition(window.scrollY);
+            const originalText = saveBtn.textContent;
+            saveBtn.textContent = 'Saved!';
+            setTimeout(() => { saveBtn.textContent = originalText; }, Config.TIMING.SAVED_MSG_DURATION);
+            updateLoadState();
+        };
+
+        loadBtn.onclick = () => {
+            const scrollY = Storage.getBookmarkPosition();
+            if (scrollY !== null) smoothScrollTo(parseInt(scrollY, 10));
+        };
+
+        // Hover Effects
+        loadBtn.style.visibility = 'hidden';
+        saveBtn.style.visibility = 'hidden';
+
+        wrapper.addEventListener('mouseenter', () => {
+            wrapper.style.opacity = Config.OPACITY.HOVER;
+            updateLoadState();
+            loadBtn.style.visibility = loadBtn.disabled ? 'hidden' : 'visible';
+            saveBtn.style.visibility = 'visible';
+        });
+        wrapper.addEventListener('mouseleave', () => {
+            wrapper.style.opacity = Config.OPACITY.NORMAL;
+            loadBtn.style.visibility = 'hidden';
+            saveBtn.style.visibility = 'hidden';
+        });
+    }
+
+    function createWrapper() {
         const div = document.createElement('div');
         Object.assign(div.style, {
             position: 'fixed',
             zIndex: '2147483647',
-            backgroundColor: 'rgba(33, 33, 33, 0.9)',
-            color: '#fff',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '5px',
+            opacity: Config.OPACITY.NORMAL,
+            transition: `opacity ${Config.TIMING.OPACITY_TRANSITION}`,
+        });
+        return div;
+    }
+
+    function createLabelContainer() {
+        const div = document.createElement('div');
+        Object.assign(div.style, {
+            backgroundColor: Config.COLORS.PANEL_BG,
+            color: Config.COLORS.PANEL_FG,
             padding: '8px',
             borderRadius: '8px',
             boxShadow: '0 4px 6px rgba(0,0,0,0.3)',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
             fontFamily: 'Segoe UI Emoji, sans-serif',
             fontSize: '12px',
             userSelect: 'none',
-            opacity: '0.25',
-            transition: 'opacity 0.3s',
-            overflow: 'visible'
         });
         return div;
     }
@@ -149,70 +212,31 @@
             padding: '5px 10px',
             borderRadius: '4px',
             cursor: 'pointer',
-            transition: 'opacity 0.2s'
+            transition: 'opacity 0.2s',
+            // Reset styles to prevent site CSS interference
+            fontFamily: 'sans-serif',
+            fontSize: '12px',
+            lineHeight: '1.5',
+            margin: '0',
+            boxSizing: 'border-box',
+            width: 'auto'
         });
         return btn;
     }
 
-    function setupOverlayLayout(container, label, saveBtn, loadBtn) {
-        const overlayBtnStyle = {
-            position: 'absolute',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            width: 'max-content',
-            opacity: '0',
-            pointerEvents: 'none',
-            transition: 'opacity 0.2s, transform 0.2s',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-            zIndex: '-1'
-        };
-        Object.assign(loadBtn.style, overlayBtnStyle);
-        Object.assign(saveBtn.style, overlayBtnStyle);
-
-        // Load Button (Top)
-        loadBtn.style.bottom = '100%';
-        loadBtn.style.marginBottom = '0';
-        loadBtn.style.borderBottom = '5px solid transparent';
-        loadBtn.style.backgroundClip = 'padding-box';
-
-        // Save Button (Bottom)
-        saveBtn.style.top = '100%';
-        saveBtn.style.marginTop = '0';
-        saveBtn.style.borderTop = '5px solid transparent';
-        saveBtn.style.backgroundClip = 'padding-box';
-    }
-
-    function setupHoverEffects(container, saveBtn, loadBtn) {
-        container.addEventListener('mouseenter', () => {
-            container.style.opacity = '1';
-            
-            loadBtn.style.opacity = loadBtn.disabled ? '0.5' : '1';
-            loadBtn.style.pointerEvents = 'auto';
-            loadBtn.style.transform = 'translateX(-50%) translateY(-3px)';
-
-            saveBtn.style.opacity = '1';
-            saveBtn.style.pointerEvents = 'auto';
-            saveBtn.style.transform = 'translateX(-50%) translateY(3px)';
-        });
-
-        container.addEventListener('mouseleave', () => {
-            container.style.opacity = '0.25';
-            
-            loadBtn.style.opacity = '0';
-            loadBtn.style.pointerEvents = 'none';
-            loadBtn.style.transform = 'translateX(-50%) translateY(0)';
-
-            saveBtn.style.opacity = '0';
-            saveBtn.style.pointerEvents = 'none';
-            saveBtn.style.transform = 'translateX(-50%) translateY(0)';
-        });
-    }
-
-    function restorePanelPosition(element, key) {
-        const savedPos = GM_getValue(key, null);
+    function restorePanelPosition(element) {
+        const savedPos = Storage.getPanelPosition();
         if (savedPos) {
-            element.style.top = savedPos.top;
-            element.style.left = savedPos.left;
+            // Clamp position to viewport
+            const val = (s) => parseInt(s, 10) || 0;
+            let left = val(savedPos.left);
+            let top = val(savedPos.top);
+
+            left = Math.max(0, Math.min(left, window.innerWidth - 50));
+            top = Math.max(0, Math.min(top, window.innerHeight - 50));
+
+            element.style.top = `${top}px`;
+            element.style.left = `${left}px`;
         } else {
             element.style.bottom = '20px';
             element.style.right = '20px';
@@ -259,7 +283,7 @@
         }
     }
 
-    function smoothScrollTo(y, duration = 500) {
+    function smoothScrollTo(y, duration = Config.TIMING.SCROLL_DURATION) {
         const startY = window.scrollY;
         const distance = y - startY;
         let startTime = null;
