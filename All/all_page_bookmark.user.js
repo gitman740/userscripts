@@ -223,7 +223,8 @@
             lineHeight: '1.5',
             margin: '0',
             boxSizing: 'border-box',
-            width: 'auto'
+            width: '60px',
+            textAlign: 'center'
         });
         return btn;
     }
