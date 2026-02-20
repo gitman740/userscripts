@@ -94,14 +94,17 @@
         // 1. Create Components
         const wrapper = createWrapper();
         const container = createLabelContainer();
+        container.style.gridArea = 'main';
         const label = createLabel();
         const saveBtn = createButton('Save', Config.COLORS.SAVE_BG, Config.COLORS.SAVE_FG);
+        saveBtn.style.gridArea = 'save';
         const loadBtn = createButton('Load', Config.COLORS.LOAD_BG, Config.COLORS.LOAD_FG);
+        loadBtn.style.gridArea = 'load';
 
         // 2. Layout & Structure
         container.appendChild(label);
-        wrapper.appendChild(loadBtn);
         wrapper.appendChild(container);
+        wrapper.appendChild(loadBtn);
         wrapper.appendChild(saveBtn);
 
         // 3. Logic & Events
@@ -164,9 +167,10 @@
         Object.assign(div.style, {
             position: 'fixed',
             zIndex: '2147483647',
-            display: 'flex',
-            flexDirection: 'column',
+            display: 'grid',
+            gridTemplateAreas: '"main load" "save ."',
             alignItems: 'center',
+            justifyItems: 'center',
             gap: '5px',
             opacity: Config.OPACITY.NORMAL,
             transition: `opacity ${Config.TIMING.OPACITY_TRANSITION}`,
