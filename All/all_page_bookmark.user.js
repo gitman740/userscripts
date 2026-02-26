@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         All Page Bookmark
+// @name         [*] Page Bookmark
 // @namespace    http://tampermonkey.net/
 // @version      1.0
 // @description  Enable bookmarking on any page via menu command (Whitelist mode).
@@ -267,8 +267,8 @@
             element.style.top = `${top}px`;
             element.style.left = `${left}px`;
         } else {
-            element.style.bottom = '20px';
-            element.style.right = '20px';
+            element.style.top = '20px';
+            element.style.left = '20px';
         }
     }
 
