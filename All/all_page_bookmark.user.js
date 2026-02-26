@@ -92,6 +92,20 @@
     // --- Main UI & Logic ---
     function initBookmarkUI() {
         // 1. Create Components
+        const host = document.createElement('div');
+        host.id = 'apb-host';
+        Object.assign(host.style, {
+            position: 'fixed',
+            zIndex: '2147483647',
+            top: '0',
+            left: '0',
+            width: '0',
+            height: '0',
+            overflow: 'visible',
+            pointerEvents: 'none' // Let clicks pass through the host container
+        });
+
+        const shadow = host.attachShadow({ mode: 'open' });
         const wrapper = createWrapper();
         const container = createLabelContainer();
         container.style.gridArea = 'main';
@@ -106,6 +120,7 @@
         wrapper.appendChild(container);
         wrapper.appendChild(loadBtn);
         wrapper.appendChild(saveBtn);
+        shadow.appendChild(wrapper);
 
         // 3. Logic & Events
         const updateLoadState = () => {
@@ -116,7 +131,16 @@
         setupEventListeners(wrapper, label, saveBtn, loadBtn, updateLoadState);
 
         // 4. Mount & Init
-        document.body.appendChild(wrapper);
+        document.body.appendChild(host);
+
+        // Ensure it stays on top (Z-Index war winner)
+        const observer = new MutationObserver(() => {
+            if (document.body.lastElementChild !== host) {
+                document.body.appendChild(host);
+            }
+        });
+        observer.observe(document.body, { childList: true });
+
         restorePanelPosition(wrapper);
         updateLoadState();
 
@@ -166,13 +190,13 @@
         const div = document.createElement('div');
         Object.assign(div.style, {
             position: 'fixed',
-            zIndex: '2147483647',
             display: 'grid',
             gridTemplateAreas: '"main load" "save ."',
             alignItems: 'center',
             justifyItems: 'center',
             gap: '5px',
             opacity: Config.OPACITY.NORMAL,
+            pointerEvents: 'auto', // Re-enable clicks for the UI
             transition: `opacity ${Config.TIMING.OPACITY_TRANSITION}`,
         });
         return div;
