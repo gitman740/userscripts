@@ -173,7 +173,7 @@
         loadBtn.style.visibility = 'hidden';
         saveBtn.style.visibility = 'hidden';
 
-        wrapper.addEventListener('mouseenter', () => {
+        label.parentElement.addEventListener('mouseenter', () => {
             wrapper.style.opacity = Config.OPACITY.HOVER;
             updateLoadState();
             loadBtn.style.visibility = loadBtn.disabled ? 'hidden' : 'visible';
